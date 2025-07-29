@@ -30,8 +30,12 @@ func (h *Handler) Create(c echo.Context) error {
 }
 
 func (h *Handler) Read(c echo.Context) error {
-	id := c.Param("id")
-	customer, err := h.service.Read(c.Request().Context(), uuid.MustParse(id))
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return err
+	}
+
+	customer, err := h.service.Read(c.Request().Context(), id)
 	if err != nil {
 		return err
 	}
@@ -44,7 +48,11 @@ func (h *Handler) Update(c echo.Context) error {
 	if err := c.Bind(customer); err != nil {
 		return err
 	}
-	customer.Id = uuid.MustParse(id)
+	var err error
+	customer.Id, err = uuid.Parse(id)
+	if err != nil {
+		return err
+	}
 	if err := h.service.Update(c.Request().Context(), *customer); err != nil {
 		return err
 	}
@@ -52,8 +60,11 @@ func (h *Handler) Update(c echo.Context) error {
 }
 
 func (h *Handler) Delete(c echo.Context) error {
-	id := c.Param("id")
-	if err := h.service.Delete(c.Request().Context(), uuid.MustParse(id)); err != nil {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return err
+	}
+	if err := h.service.Delete(c.Request().Context(), id); err != nil {
 		return err
 	}
 	return c.NoContent(http.StatusNoContent)

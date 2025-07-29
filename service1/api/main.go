@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
-	"service1/api/pkg/customers"
+	"service1/api/internal/customers"
 )
 
 func main() {

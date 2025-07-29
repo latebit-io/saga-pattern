@@ -2,25 +2,18 @@ package customers
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
 type Customer struct {
-	Id      uuid.UUID `json:"id"`
-	Name    string    `json:"name"`
-	Email   string    `json:"email"`
-	Address *Address  `json:"address"`
-}
-
-type Address struct {
-	Number     string `json:"number"`
-	Street     string `json:"street"`
-	City       string `json:"city"`
-	Province   string `json:"province"`
-	PostalCode string `json:"postalCode"`
-	Country    string `json:"country"`
+	Id         uuid.UUID `json:"id"`
+	Name       string    `json:"name"`
+	Email      string    `json:"email"`
+	CreatedAt  time.Time `json:"created_at"`
+	ModifiedAt time.Time `json:"modified_at"`
 }
 
 type Repository interface {
@@ -46,7 +39,7 @@ func NewCustomersRepository(conn *pgx.Conn) *CustomersRepository {
 }
 
 func (c *CustomersRepository) Create(ctx context.Context, customer Customer) error {
-	sql := "INSERT INTO customers (id, name, email) VALUES ($1, $2, $3)"
+	sql := "INSERT INTO customers (id, name, email, created_at, modified_at) VALUES ($1, $2, $3, NOW(), NOW())"
 
 	_, err := c.conn.Exec(ctx, sql, customer.Id, customer.Name, customer.Email)
 	if err != nil {
@@ -56,10 +49,10 @@ func (c *CustomersRepository) Create(ctx context.Context, customer Customer) err
 }
 
 func (c *CustomersRepository) Read(ctx context.Context, id uuid.UUID) (Customer, error) {
-	sql := "SELECT id, name, email FROM customers WHERE id = $1"
+	sql := "SELECT id, name, email, created_at, modified_at FROM customers WHERE id = $1"
 	row := c.conn.QueryRow(ctx, sql, id)
 	var customer Customer
-	err := row.Scan(&customer.Id, &customer.Name, &customer.Email)
+	err := row.Scan(&customer.Id, &customer.Name, &customer.Email, &customer.CreatedAt, &customer.ModifiedAt)
 	if err != nil {
 		return Customer{}, err
 	}
@@ -67,7 +60,7 @@ func (c *CustomersRepository) Read(ctx context.Context, id uuid.UUID) (Customer,
 }
 
 func (c *CustomersRepository) Update(ctx context.Context, customer Customer) error {
-	sql := "UPDATE customers SET name = $1, email = $2 WHERE id = $3"
+	sql := "UPDATE customers SET name = $1, email = $2, modified_at = NOW() WHERE id = $3"
 	_, err := c.conn.Exec(ctx, sql, customer.Name, customer.Email, customer.Id)
 	if err != nil {
 		return err
