@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  # Shared PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: saga_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - saga-network
+
+  # Service 1 - Customer Service
+  service1:
+    build:
+      context: ./service1
+      dockerfile: Dockerfile
+    container_name: saga_service1
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/service1_db?sslmode=disable
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - saga-network
+    restart: on-failure
+
+  # Service 2 - Mortgage Application Service
+  service2:
+    build:
+      context: ./service2
+      dockerfile: Dockerfile
+    container_name: saga_service2
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/service2_db?sslmode=disable
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - saga-network
+    restart: on-failure
+
+  # Service 3 - Loan Servicing Service
+  service3:
+    build:
+      context: ./service3
+      dockerfile: Dockerfile
+    container_name: saga_service3
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/service3_db?sslmode=disable
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - saga-network
+    restart: on-failure
+
+networks:
+  saga-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

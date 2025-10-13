@@ -13,9 +13,10 @@ import (
 )
 
 func main() {
+	// Load .env file if it exists (optional - environment variables can also be set via docker-compose)
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		log.Println("Warning: .env file not found, using environment variables")
 	}
 	ctx := context.Background()
 	conn, err := pgx.Connect(ctx, os.Getenv("DATABASE_URL"))
