@@ -1,0 +1,86 @@
+### Create Mortgage Application
+POST http://localhost:8082/applications
+Content-Type: application/json
+
+{
+  "customer_id": "5e8bb7ae-b15f-4e19-8f3a-220ff24c6103",
+  "loan_amount": 500000.00,
+  "property_value": 650000.00,
+  "interest_rate": 3.5,
+  "term_years": 30
+}
+
+### Create Another Mortgage Application
+POST http://localhost:8082/applications
+Content-Type: application/json
+
+{
+  "customer_id": "5e8bb7ae-b15f-4e19-8f3a-220ff24c6103",
+  "loan_amount": 400000.00,
+  "property_value": 550000.00,
+  "interest_rate": 4.0,
+  "term_years": 25
+}
+
+### Create Mortgage Application for Different Customer
+POST http://localhost:8082/applications
+Content-Type: application/json
+
+{
+  "customer_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "loan_amount": 750000.00,
+  "property_value": 900000.00,
+  "interest_rate": 3.25,
+  "term_years": 30
+}
+
+### Read Mortgage Application by ID
+GET http://localhost:8082/applications/replace-with-actual-id
+
+### Update Mortgage Application (Approve)
+PUT http://localhost:8082/applications/replace-with-actual-id
+Content-Type: application/json
+
+{
+  "customer_id": "5e8bb7ae-b15f-4e19-8f3a-220ff24c6103",
+  "loan_amount": 500000.00,
+  "property_value": 650000.00,
+  "interest_rate": 3.25,
+  "term_years": 30,
+  "status": "approved"
+}
+
+### Update Mortgage Application (Reject)
+PUT http://localhost:8082/applications/replace-with-actual-id
+Content-Type: application/json
+
+{
+  "customer_id": "5e8bb7ae-b15f-4e19-8f3a-220ff24c6103",
+  "loan_amount": 500000.00,
+  "property_value": 650000.00,
+  "interest_rate": 3.5,
+  "term_years": 30,
+  "status": "rejected"
+}
+
+### Get All Applications for a Customer
+GET http://localhost:8082/customers/5e8bb7ae-b15f-4e19-8f3a-220ff24c6103/applications
+
+### Delete Mortgage Application
+DELETE http://localhost:8082/applications/replace-with-actual-id
+
+###
+### SERVICE1 ENDPOINTS (for reference - create customers first)
+###
+
+### Create Customer in Service1
+POST http://localhost:8081/customers
+Content-Type: application/json
+
+{
+  "name": "John Doe",
+  "email": "john.doe@example.com"
+}
+
+### Read Customer from Service1
+GET http://localhost:8081/customers/5e8bb7ae-b15f-4e19-8f3a-220ff24c6103
