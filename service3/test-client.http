@@ -1,0 +1,225 @@
+### Create Mortgage Application
+POST http://localhost:8082/applications
+Content-Type: application/json
+
+{
+  "customer_id": "5e8bb7ae-b15f-4e19-8f3a-220ff24c6103",
+  "loan_amount": 500000.00,
+  "property_value": 650000.00,
+  "interest_rate": 3.5,
+  "term_years": 30
+}
+
+### Create Another Mortgage Application
+POST http://localhost:8082/applications
+Content-Type: application/json
+
+{
+  "customer_id": "5e8bb7ae-b15f-4e19-8f3a-220ff24c6103",
+  "loan_amount": 400000.00,
+  "property_value": 550000.00,
+  "interest_rate": 4.0,
+  "term_years": 25
+}
+
+### Create Mortgage Application for Different Customer
+POST http://localhost:8082/applications
+Content-Type: application/json
+
+{
+  "customer_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "loan_amount": 750000.00,
+  "property_value": 900000.00,
+  "interest_rate": 3.25,
+  "term_years": 30
+}
+
+### Read Mortgage Application by ID
+GET http://localhost:8082/applications/replace-with-actual-id
+
+### Update Mortgage Application (Approve)
+PUT http://localhost:8082/applications/replace-with-actual-id
+Content-Type: application/json
+
+{
+  "customer_id": "5e8bb7ae-b15f-4e19-8f3a-220ff24c6103",
+  "loan_amount": 500000.00,
+  "property_value": 650000.00,
+  "interest_rate": 3.25,
+  "term_years": 30,
+  "status": "approved"
+}
+
+### Update Mortgage Application (Reject)
+PUT http://localhost:8082/applications/replace-with-actual-id
+Content-Type: application/json
+
+{
+  "customer_id": "5e8bb7ae-b15f-4e19-8f3a-220ff24c6103",
+  "loan_amount": 500000.00,
+  "property_value": 650000.00,
+  "interest_rate": 3.5,
+  "term_years": 30,
+  "status": "rejected"
+}
+
+### Get All Applications for a Customer
+GET http://localhost:8082/customers/5e8bb7ae-b15f-4e19-8f3a-220ff24c6103/applications
+
+### Delete Mortgage Application
+DELETE http://localhost:8082/applications/replace-with-actual-id
+
+###
+### SERVICE3 ENDPOINTS (Loan Servicing)
+###
+
+### Create Loan (after mortgage approval)
+POST http://localhost:8083/loans
+Content-Type: application/json
+
+{
+  "customer_id": "5e8bb7ae-b15f-4e19-8f3a-220ff24c6103",
+  "mortgage_id": "5e8bb7ae-b15f-4e19-8f3a-220ff24c6103",
+  "loan_amount": 500000.00,
+  "interest_rate": 3.25,
+  "term_years": 30,
+  "monthly_payment": 2176.00,
+  "outstanding_balance": 500000.00,
+  "status": "active",
+  "start_date": "2025-01-01T00:00:00Z",
+  "maturity_date": "2055-01-01T00:00:00Z"
+}
+
+### Create Another Loan
+POST http://localhost:8083/loans
+Content-Type: application/json
+
+{
+  "customer_id": "5e8bb7ae-b15f-4e19-8f3a-220ff24c6103",
+  "mortgage_id": "replace-with-another-approved-mortgage-id",
+  "loan_amount": 400000.00,
+  "interest_rate": 4.0,
+  "term_years": 25,
+  "monthly_payment": 2111.00,
+  "outstanding_balance": 400000.00,
+  "status": "active",
+  "start_date": "2025-02-01T00:00:00Z",
+  "maturity_date": "2050-02-01T00:00:00Z"
+}
+
+### Read Loan by ID
+GET http://localhost:8083/loans/replace-with-actual-loan-id
+
+### Update Loan (e.g., update outstanding balance)
+PUT http://localhost:8083/loans/replace-with-actual-loan-id
+Content-Type: application/json
+
+{
+  "customer_id": "5e8bb7ae-b15f-4e19-8f3a-220ff24c6103",
+  "mortgage_id": "replace-with-approved-mortgage-id",
+  "loan_amount": 500000.00,
+  "interest_rate": 3.25,
+  "term_years": 30,
+  "monthly_payment": 2176.00,
+  "outstanding_balance": 495000.00,
+  "status": "active",
+  "start_date": "2025-01-01T00:00:00Z",
+  "maturity_date": "2055-01-01T00:00:00Z"
+}
+
+### Update Loan Status to Paid Off
+PUT http://localhost:8083/loans/replace-with-actual-loan-id
+Content-Type: application/json
+
+{
+  "customer_id": "5e8bb7ae-b15f-4e19-8f3a-220ff24c6103",
+  "mortgage_id": "replace-with-approved-mortgage-id",
+  "loan_amount": 500000.00,
+  "interest_rate": 3.25,
+  "term_years": 30,
+  "monthly_payment": 2176.00,
+  "outstanding_balance": 0.00,
+  "status": "paid_off",
+  "start_date": "2025-01-01T00:00:00Z",
+  "maturity_date": "2055-01-01T00:00:00Z"
+}
+
+### Get All Loans for a Customer
+GET http://localhost:8083/customers/5e8bb7ae-b15f-4e19-8f3a-220ff24c6103/loans
+
+### Get Loan by Mortgage Application ID
+GET http://localhost:8083/mortgages/replace-with-mortgage-id/loan
+
+### Delete Loan
+DELETE http://localhost:8083/loans/d5d8d82a-9405-4ac8-87e6-82ba940d6efe
+
+###
+### PAYMENT ENDPOINTS
+###
+
+### Create Regular Payment
+POST http://localhost:8083/payments
+Content-Type: application/json
+
+{
+  "loan_id": "replace-with-actual-loan-id",
+  "customer_id": "5e8bb7ae-b15f-4e19-8f3a-220ff24c6103",
+  "payment_amount": 2176.00,
+  "principal_amount": 821.67,
+  "interest_amount": 1354.33,
+  "payment_date": "2025-02-01T00:00:00Z",
+  "payment_type": "regular"
+}
+
+### Create Extra Payment
+POST http://localhost:8083/payments
+Content-Type: application/json
+
+{
+  "loan_id": "replace-with-actual-loan-id",
+  "customer_id": "5e8bb7ae-b15f-4e19-8f3a-220ff24c6103",
+  "payment_amount": 5000.00,
+  "principal_amount": 5000.00,
+  "interest_amount": 0.00,
+  "payment_date": "2025-03-15T00:00:00Z",
+  "payment_type": "extra"
+}
+
+### Create Payoff Payment
+POST http://localhost:8083/payments
+Content-Type: application/json
+
+{
+  "loan_id": "replace-with-actual-loan-id",
+  "customer_id": "5e8bb7ae-b15f-4e19-8f3a-220ff24c6103",
+  "payment_amount": 495000.00,
+  "principal_amount": 495000.00,
+  "interest_amount": 0.00,
+  "payment_date": "2025-04-01T00:00:00Z",
+  "payment_type": "payoff"
+}
+
+### Read Payment by ID
+GET http://localhost:8083/payments/replace-with-actual-payment-id
+
+### Get All Payments for a Loan
+GET http://localhost:8083/loans/replace-with-actual-loan-id/payments
+
+### Get All Payments for a Customer
+GET http://localhost:8083/customers/5e8bb7ae-b15f-4e19-8f3a-220ff24c6103/payments
+
+###
+### SERVICE1 ENDPOINTS (for reference - create customers first)
+###
+
+### Create Customer in Service1
+POST http://localhost:8081/customers
+Content-Type: application/json
+
+{
+  "name": "John Doe",
+  "email": "john.doe@example.com"
+}
+
+### Read Customer from Service1
+GET http://localhost:8081/customers/5e8bb7ae-b15f-4e19-8f3a-220ff24c6103
