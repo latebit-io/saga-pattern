@@ -2,11 +2,12 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
-	service1 "service1/api/pkg/client"
+	customers "service1/api/pkg/client"
+	applictions "service2/api/pkg/client"
+	servicing "service3/api/pkg/client"
 )
 
 // CustomerSagaData holds the shared data context for the customer saga
@@ -17,17 +18,31 @@ type CustomerSagaData struct {
 	Email string
 
 	// Populated by steps during execution
-	CustomerID *uuid.UUID // Set by CreateCustomer step
-	OrderID    *string    // Set by CreateOrder step (example)
+	CustomerID    *uuid.UUID // Set by CreateCustomer step
+	ApplicationID *uuid.UUID
+
+	Application ApplicationSagaData
+}
+
+type ApplicationSagaData struct {
+	LoanAmount     float64
+	PropertyAmount float64
+	InterestRate   float64
+	TermYears      int
 }
 
 type CustomersSaga struct {
-	service1Client *service1.Client
+	customersClient    *customers.Client
+	applicationsClient *applictions.Client
+	servicingClient    *servicing.Client
 }
 
-func NewCustomersSaga(s1 *service1.Client) *CustomersSaga {
+func NewCustomersSaga(customers *customers.Client,
+	applications *applictions.Client, servicing *servicing.Client) *CustomersSaga {
 	return &CustomersSaga{
-		service1Client: s1,
+		customersClient:    customers,
+		applicationsClient: applications,
+		servicingClient:    servicing,
 	}
 }
 
@@ -36,6 +51,12 @@ func (s *CustomersSaga) CreateCustomer(ctx context.Context, name, email string) 
 	data := &CustomerSagaData{
 		Name:  name,
 		Email: email,
+		Application: ApplicationSagaData{
+			LoanAmount:     1,
+			PropertyAmount: 1,
+			InterestRate:   1,
+			TermYears:      1,
+		},
 	}
 
 	// Create and execute the saga
@@ -44,7 +65,7 @@ func (s *CustomersSaga) CreateCustomer(ctx context.Context, name, email string) 
 			"CreateCustomer",
 			func(ctx context.Context, data *CustomerSagaData) error {
 				// Create customer and store the ID in the saga data
-				customer, err := s.service1Client.Create(ctx, data.Name, data.Email)
+				customer, err := s.customersClient.Create(ctx, data.Name, data.Email)
 				if err != nil {
 					return fmt.Errorf("failed to create customer: %w", err)
 				}
@@ -56,27 +77,25 @@ func (s *CustomersSaga) CreateCustomer(ctx context.Context, name, email string) 
 				if data.CustomerID == nil {
 					return nil // Nothing to compensate
 				}
-				return s.service1Client.Delete(ctx, *data.CustomerID)
+				return s.customersClient.Delete(ctx, *data.CustomerID)
 			},
 		).
 		AddStep(
-			"CreateOrder",
+			"CreateApplication",
 			func(ctx context.Context, data *CustomerSagaData) error {
-				// This step can access the CustomerID from the previous step
-				if data.CustomerID == nil {
-					return errors.New("customer ID not available")
+				application, err := s.applicationsClient.Create(ctx, *data.CustomerID, data.Application.LoanAmount, data.Application.PropertyAmount, data.Application.InterestRate, data.Application.TermYears)
+				if err != nil {
+					return fmt.Errorf("failed to create application: %w", err)
 				}
-
-				// Simulate creating an order (intentionally failing for demo)
-				return errors.New("order creation failed - this will trigger rollback")
+				data.ApplicationID = &application.Id
+				return nil
 			},
 			func(ctx context.Context, data *CustomerSagaData) error {
 				// Compensation: clean up order if it was created
-				if data.OrderID != nil {
-					// Delete order logic here
+				if data.ApplicationID != nil {
 					return nil
 				}
-				return nil
+				return s.applicationsClient.Delete(ctx, *data.CustomerID)
 			},
 		).
 		Execute(ctx)

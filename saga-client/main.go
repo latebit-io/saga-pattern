@@ -3,12 +3,17 @@ package main
 import (
 	"context"
 
-	service1 "service1/api/pkg/client"
+	customers "service1/api/pkg/client"
+	applictions "service2/api/pkg/client"
+	servicing "service3/api/pkg/client"
 )
 
 func main() {
-	service1Client := service1.NewClient("http://localhost:8081")
-	saga := NewCustomersSaga(service1Client)
+	customersClient := customers.NewClient("http://localhost:8081")
+	applicationsClient := applictions.NewClient("http://localhost:8082")
+	servicingClient := servicing.NewClient("http://localhost:8083")
+
+	saga := NewCustomersSaga(customersClient, applicationsClient, servicingClient)
 
 	err := saga.CreateCustomer(
 		context.Background(),

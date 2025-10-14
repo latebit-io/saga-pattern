@@ -4,7 +4,11 @@ go 1.24
 
 require github.com/google/uuid v1.6.0
 
-require service1 v0.0.0
+require (
+	service1 v0.0.0
+	service2 v0.0.0
+	service3 v0.0.0
+)
 
 require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
@@ -23,5 +27,7 @@ require (
 )
 
 replace service1 => ../service1
+replace service2 => ../service2
+replace service3 => ../service3
 
 // indirect
