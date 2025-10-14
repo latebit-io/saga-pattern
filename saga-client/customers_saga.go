@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	customers "service1/api/pkg/client"
@@ -20,6 +21,7 @@ type CustomerSagaData struct {
 	// Populated by steps during execution
 	CustomerID    *uuid.UUID // Set by CreateCustomer step
 	ApplicationID *uuid.UUID
+	LoanID        *uuid.UUID
 
 	Application ApplicationSagaData
 }
@@ -91,11 +93,30 @@ func (s *CustomersSaga) CreateCustomer(ctx context.Context, name, email string) 
 				return nil
 			},
 			func(ctx context.Context, data *CustomerSagaData) error {
-				// Compensation: clean up order if it was created
-				if data.ApplicationID != nil {
+				if data.ApplicationID == nil {
 					return nil
 				}
-				return s.applicationsClient.Delete(ctx, *data.CustomerID)
+				return s.applicationsClient.Delete(ctx, *data.ApplicationID)
+			},
+		).
+		AddStep(
+			"ExportToServicing",
+			func(ctx context.Context, data *CustomerSagaData) error {
+				loan, err := s.servicingClient.CreateLoan(ctx, *data.CustomerID, *data.ApplicationID,
+					data.Application.LoanAmount, data.Application.InterestRate, data.Application.TermYears,
+					float64(100), data.Application.LoanAmount, time.Now(), time.Now().AddDate(1, 0, 0))
+				if err != nil {
+					return fmt.Errorf("failed to export loan: %w", err)
+				}
+				data.LoanID = &loan.Id
+				return nil
+			},
+			func(ctx context.Context, data *CustomerSagaData) error {
+				// Compensation: clean up order if it was created
+				if data.LoanID != nil {
+					return nil
+				}
+				return s.servicingClient.DeleteLoan(ctx, *data.LoanID)
 			},
 		).
 		Execute(ctx)
