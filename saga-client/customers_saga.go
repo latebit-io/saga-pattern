@@ -61,8 +61,16 @@ func (s *CustomersSaga) CreateCustomer(ctx context.Context, name, email string) 
 		},
 	}
 
+	// Configure compensation strategy with retry and continue-all behavior
+	retryConfig := DefaultRetryConfig()
+	retryConfig.MaxRetries = 3
+	retryConfig.InitialBackoff = 2 * time.Second
+
+	compensationStrategy := NewContinueAllStrategy[CustomerSagaData](retryConfig)
+
 	// Create and execute the saga
 	err := NewSaga(data).
+		WithCompensationStrategy(compensationStrategy).
 		AddStep(
 			"CreateCustomer",
 			func(ctx context.Context, data *CustomerSagaData) error {
@@ -102,6 +110,7 @@ func (s *CustomersSaga) CreateCustomer(ctx context.Context, name, email string) 
 		AddStep(
 			"ExportToServicing",
 			func(ctx context.Context, data *CustomerSagaData) error {
+				//return fmt.Errorf("failed to export loan")
 				loan, err := s.servicingClient.CreateLoan(ctx, *data.CustomerID, *data.ApplicationID,
 					data.Application.LoanAmount, data.Application.InterestRate, data.Application.TermYears,
 					float64(100), data.Application.LoanAmount, time.Now(), time.Now().AddDate(1, 0, 0))

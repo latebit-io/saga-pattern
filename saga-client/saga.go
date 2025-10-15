@@ -15,27 +15,36 @@ type SagaStep[T any] struct {
 
 // Saga represents the saga orchestrator
 type Saga[T any] struct {
-	Steps  []*SagaStep[T]
-	Data   *T
-	logger *log.Logger
+	Steps                []*SagaStep[T]
+	Data                 *T
+	logger               *log.Logger
+	compensationStrategy CompensationStrategy[T]
 }
 
-// NewSaga creates a new saga instance
+// NewSaga creates a new saga instance with default FailFast strategy
 func NewSaga[T any](data *T) *Saga[T] {
 	return &Saga[T]{
-		Steps:  make([]*SagaStep[T], 0),
-		Data:   data,
-		logger: log.Default(),
+		Steps:                make([]*SagaStep[T], 0),
+		Data:                 data,
+		logger:               log.Default(),
+		compensationStrategy: NewFailFastStrategy[T](),
 	}
 }
 
-// NewSagaWithLogger creates a new saga instance with a custom logger
+// NewSagaWithLogger creates a new saga instance with a custom logger and default FailFast strategy
 func NewSagaWithLogger[T any](data *T, logger *log.Logger) *Saga[T] {
 	return &Saga[T]{
-		Steps:  make([]*SagaStep[T], 0),
-		Data:   data,
-		logger: logger,
+		Steps:                make([]*SagaStep[T], 0),
+		Data:                 data,
+		logger:               logger,
+		compensationStrategy: NewFailFastStrategy[T](),
 	}
+}
+
+// WithCompensationStrategy sets the compensation strategy for the saga (fluent API)
+func (s *Saga[T]) WithCompensationStrategy(strategy CompensationStrategy[T]) *Saga[T] {
+	s.compensationStrategy = strategy
+	return s
 }
 
 // AddStep adds a step to the saga
@@ -64,14 +73,8 @@ func (s *Saga[T]) Execute(ctx context.Context) error {
 	return nil
 }
 
-// compensate runs compensation for executed steps in reverse order
+// compensate runs compensation for executed steps using the configured strategy
 func (s *Saga[T]) compensate(ctx context.Context, failedStepIndex int) error {
-	for i := failedStepIndex - 1; i >= 0; i-- {
-		step := s.Steps[i]
-		if err := step.Compensate(ctx, s.Data); err != nil {
-			return fmt.Errorf("compensation failed for step %s: %w", step.Name, err)
-		}
-		s.logger.Printf("Compensated: %s", step.Name)
-	}
-	return nil
+	// Directly use the typed strategy - no conversion needed!
+	return s.compensationStrategy.Compensate(ctx, s.Steps, failedStepIndex, s.Data, s.logger)
 }
