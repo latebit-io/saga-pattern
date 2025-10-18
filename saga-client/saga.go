@@ -17,8 +17,24 @@ type SagaStep[T any] struct {
 type Saga[T any] struct {
 	Steps                []*SagaStep[T]
 	Data                 *T
-	logger               *log.Logger
+	logger               Logger
 	compensationStrategy CompensationStrategy[T]
+	metadata             map[string]string
+}
+
+type Logger interface {
+	Log(level string, msg string, fields map[string]interface{})
+}
+
+type DefaultLogger struct {
+	logger *log.Logger
+}
+
+func NewDefaultLogger(logger *log.Logger) *DefaultLogger {
+	return &DefaultLogger{logger: logger}
+}
+func (l *DefaultLogger) Log(level string, msg string, fields map[string]interface{}) {
+	l.logger.Printf("%s: %s", level, msg)
 }
 
 // NewSaga creates a new saga instance with default FailFast strategy
@@ -26,7 +42,7 @@ func NewSaga[T any](data *T) *Saga[T] {
 	return &Saga[T]{
 		Steps:                make([]*SagaStep[T], 0),
 		Data:                 data,
-		logger:               log.Default(),
+		logger:               NewDefaultLogger(log.Default()),
 		compensationStrategy: NewFailFastStrategy[T](),
 	}
 }
@@ -36,7 +52,7 @@ func NewSagaWithLogger[T any](data *T, logger *log.Logger) *Saga[T] {
 	return &Saga[T]{
 		Steps:                make([]*SagaStep[T], 0),
 		Data:                 data,
-		logger:               logger,
+		logger:               NewDefaultLogger(log.Default()),
 		compensationStrategy: NewFailFastStrategy[T](),
 	}
 }
@@ -62,13 +78,13 @@ func (s *Saga[T]) AddStep(name string, execute, compensate func(ctx context.Cont
 func (s *Saga[T]) Execute(ctx context.Context) error {
 	for i, step := range s.Steps {
 		if err := step.Execute(ctx, s.Data); err != nil {
-			s.logger.Printf("Step %s failed: %v", step.Name, err)
+			s.logger.Log("info", fmt.Sprintf("Step %s failed: %v", step.Name, err), nil)
 			if compErr := s.compensate(ctx, i); compErr != nil {
 				return fmt.Errorf("execution failed: %w, compensation failed: %w", err, compErr)
 			}
 			return fmt.Errorf("saga failed and rolled back: %w", err)
 		}
-		s.logger.Printf("Executed: %s", step.Name)
+		s.logger.Log("info", fmt.Sprintf("Executed: %s", step.Name), nil)
 	}
 	return nil
 }

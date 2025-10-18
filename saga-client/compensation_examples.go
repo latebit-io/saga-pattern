@@ -24,7 +24,7 @@ func ExampleContinueAllStrategy() {
 
 	// Configure retry behavior
 	retryConfig := DefaultRetryConfig()
-	retryConfig.MaxRetries = 3              // Retry up to 3 times
+	retryConfig.MaxRetries = 3 // Retry up to 3 times
 	retryConfig.InitialBackoff = 2 * time.Second
 	retryConfig.MaxBackoff = 30 * time.Second
 
@@ -129,10 +129,10 @@ func ExampleCustomRetryConfig() {
 
 	// Custom configuration for slow/unreliable external services
 	retryConfig := RetryConfig{
-		MaxRetries:      10,                  // Very persistent
-		InitialBackoff:  5 * time.Second,     // Start with longer wait
-		MaxBackoff:      2 * time.Minute,     // Cap at 2 minutes
-		BackoffMultiple: 1.5,                 // Slower exponential growth
+		MaxRetries:      10,              // Very persistent
+		InitialBackoff:  5 * time.Second, // Start with longer wait
+		MaxBackoff:      2 * time.Minute, // Cap at 2 minutes
+		BackoffMultiple: 1.5,             // Slower exponential growth
 	}
 
 	strategy := NewContinueAllStrategy[CustomerSagaData](retryConfig)
@@ -145,6 +145,7 @@ func ExampleCustomRetryConfig() {
 	if err != nil {
 		log.Printf("Saga failed: %v", err)
 	}
+
 }
 
 // Example 6: Handling different error types in your API
@@ -162,7 +163,7 @@ func HandleSagaError(err error) (statusCode int, message string) {
 			log.Printf("  Failed to compensate %s: %v", failure.StepName, failure.Error)
 		}
 
-		return 500, fmt.Sprintf("Transaction failed with partial rollback. " +
+		return 500, fmt.Sprintf("Transaction failed with partial rollback. "+
 			"%d step(s) could not be compensated. Please contact support.", len(compErr.Failures))
 	}
 

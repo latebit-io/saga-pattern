@@ -87,6 +87,7 @@ func (t *testLogger) countContaining(substr string) int {
 // =====================================
 
 func TestRetryStrategy_SuccessfulCompensation(t *testing.T) {
+	logger := NewDefaultLogger(log.Default())
 	// All compensations succeed on first try
 	step1 := newMockStep("Step1", 0) // Never fails
 	step2 := newMockStep("Step2", 0) // Never fails
@@ -110,7 +111,7 @@ func TestRetryStrategy_SuccessfulCompensation(t *testing.T) {
 	strategy := NewRetryStrategy[TestData](config)
 
 	// Simulate failure at step index 2, so steps 0 and 1 need compensation
-	err := strategy.Compensate(context.Background(), steps, 2, data, log.New(log.Writer(), "", 0))
+	err := strategy.Compensate(context.Background(), steps, 2, data, logger)
 
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
@@ -126,6 +127,7 @@ func TestRetryStrategy_SuccessfulCompensation(t *testing.T) {
 }
 
 func TestRetryStrategy_EventualSuccess(t *testing.T) {
+	logger := NewDefaultLogger(log.Default())
 	// Step fails twice, then succeeds
 	step1 := newMockStep("Step1", 2) // Fail first 2 attempts
 
@@ -146,7 +148,7 @@ func TestRetryStrategy_EventualSuccess(t *testing.T) {
 
 	strategy := NewRetryStrategy[TestData](config)
 
-	err := strategy.Compensate(context.Background(), steps, 1, data, log.New(log.Writer(), "", 0))
+	err := strategy.Compensate(context.Background(), steps, 1, data, logger)
 
 	if err != nil {
 		t.Errorf("Expected no error after retries, got: %v", err)
@@ -162,6 +164,7 @@ func TestRetryStrategy_EventualSuccess(t *testing.T) {
 }
 
 func TestRetryStrategy_ExhaustedRetries(t *testing.T) {
+	logger := NewDefaultLogger(log.Default())
 	// Step always fails
 	step1 := newMockStep("Step1", 999) // Always fails
 
@@ -182,7 +185,7 @@ func TestRetryStrategy_ExhaustedRetries(t *testing.T) {
 
 	strategy := NewRetryStrategy[TestData](config)
 
-	err := strategy.Compensate(context.Background(), steps, 1, data, log.New(log.Writer(), "", 0))
+	err := strategy.Compensate(context.Background(), steps, 1, data, logger)
 
 	if err == nil {
 		t.Error("Expected error after exhausting retries")

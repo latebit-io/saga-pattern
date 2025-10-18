@@ -221,3 +221,13 @@ For even more resilience, consider:
 2. Background worker to retry permanently failed compensations
 3. Dead letter queue for manual intervention
 4. Async saga execution with polling (see examples for API timeouts)
+   Option B: Commit to Distributed Sagas
+
+If you genuinely need distributed transactions:
+1. Deploy services with truly separate databases (different Postgres instances)
+2. Add persistent saga state store
+3. Implement idempotency keys
+4. Add timeout handling and circuit breakers
+5. Build manual intervention tooling for stuck sagas
+6. Use soft deletes
+7. THEN add transaction IDs (in context, not struct)
