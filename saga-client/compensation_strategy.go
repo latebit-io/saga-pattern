@@ -58,7 +58,7 @@ func (r *RetryStrategy[T]) Compensate(ctx context.Context, steps []*SagaStep[T],
 				step.Name, r.config.MaxRetries+1, err)
 		}
 
-		logger.Log("info", fmt.Sprintf("✓ Compensated: %s", step.Name), nil)
+		logger.Log("info", fmt.Sprintf("✓ Compensated: %s", step.Name))
 	}
 	return nil
 }
@@ -75,7 +75,7 @@ func (r *RetryStrategy[T]) compensateStepWithRetry(ctx context.Context, step *Sa
 
 		if attempt < r.config.MaxRetries {
 			logger.Log("info", fmt.Sprintf("⚠️  Compensation failed for %s (attempt %d/%d): %v. Retrying in %v...",
-				step.Name, attempt+1, r.config.MaxRetries+1, lastErr, backoff), nil)
+				step.Name, attempt+1, r.config.MaxRetries+1, lastErr, backoff))
 
 			select {
 			case <-time.After(backoff):
@@ -126,9 +126,9 @@ func (c *ContinueAllStrategy[T]) Compensate(ctx context.Context, steps []*SagaSt
 
 		if err != nil {
 			compensationErrors = append(compensationErrors, result)
-			logger.Log("info", fmt.Sprintf("❌ CRITICAL: Compensation failed for %s after all retries: %v", step.Name, err), nil)
+			logger.Log("info", fmt.Sprintf("❌ CRITICAL: Compensation failed for %s after all retries: %v", step.Name, err))
 		} else {
-			logger.Log("info", fmt.Sprintf("✓ Compensated: %s", step.Name), nil)
+			logger.Log("info", fmt.Sprintf("✓ Compensated: %s", step.Name))
 		}
 	}
 
@@ -159,7 +159,7 @@ func (f *FailFastStrategy[T]) Compensate(ctx context.Context, steps []*SagaStep[
 		if err := step.Compensate(ctx, data); err != nil {
 			return fmt.Errorf("compensation failed for step %s: %w", step.Name, err)
 		}
-		logger.Log("info", fmt.Sprintf("✓ Compensated: %s", step.Name), nil)
+		logger.Log("info", fmt.Sprintf("✓ Compensated: %s", step.Name))
 	}
 	return nil
 }
