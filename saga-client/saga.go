@@ -36,7 +36,7 @@ type Saga[T any] struct {
 
 type SagaStateStore interface {
 	SaveState(ctx context.Context, state *SagaState) error
-	LoadState(ctx context.Context, sagaID string) (SagaState, error)
+	LoadState(ctx context.Context, sagaID string) (*SagaState, error)
 	MarkComplete(ctx context.Context, sagaID string) error
 }
 
@@ -67,10 +67,11 @@ func (l *DefaultLogger) Log(level string, msg string) {
 }
 
 // NewSaga creates a new saga instance with default FailFast strategy
-func NewSaga[T any](data *T) *Saga[T] {
+func NewSaga[T any](stateStore SagaStateStore, data *T) *Saga[T] {
 	return &Saga[T]{
 		Steps:                make([]*SagaStep[T], 0),
 		Data:                 data,
+		stateStore:           stateStore,
 		logger:               NewDefaultLogger(log.Default()),
 		compensationStrategy: NewFailFastStrategy[T](),
 	}

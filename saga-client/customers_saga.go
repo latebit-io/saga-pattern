@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	customers "service1/api/pkg/client"
 	applictions "service2/api/pkg/client"
 	servicing "service3/api/pkg/client"
+
+	"github.com/google/uuid"
 )
 
 // CustomerSagaData holds the shared data context for the customer saga
@@ -37,14 +38,16 @@ type CustomersSaga struct {
 	customersClient    *customers.Client
 	applicationsClient *applictions.Client
 	servicingClient    *servicing.Client
+	stateStore         SagaStateStore
 }
 
-func NewCustomersSaga(customers *customers.Client,
+func NewCustomersSaga(stateStore SagaStateStore, customers *customers.Client,
 	applications *applictions.Client, servicing *servicing.Client) *CustomersSaga {
 	return &CustomersSaga{
 		customersClient:    customers,
 		applicationsClient: applications,
 		servicingClient:    servicing,
+		stateStore:         stateStore,
 	}
 }
 
@@ -69,7 +72,7 @@ func (s *CustomersSaga) CreateCustomer(ctx context.Context, name, email string) 
 	compensationStrategy := NewContinueAllStrategy[CustomerSagaData](retryConfig)
 
 	// Create and execute the saga
-	err := NewSaga(data).
+	err := NewSaga(s.stateStore, data).
 		WithCompensationStrategy(compensationStrategy).
 		AddStep(
 			"CreateCustomer",

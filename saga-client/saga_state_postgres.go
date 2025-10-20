@@ -30,7 +30,7 @@ func NewPostgresSagaStore(pool *pgx.Conn) *PostgresSagaStore {
 	}
 }
 
-func (s *PostgresSagaStore) SaveState(ctx context.Context, state SagaState) error {
+func (s *PostgresSagaStore) SaveState(ctx context.Context, state *SagaState) error {
 	query := `
         INSERT INTO saga_states (saga_id, correlation_id, status, current_step, executed_steps, created_at, updated_at)
         VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -39,7 +39,7 @@ func (s *PostgresSagaStore) SaveState(ctx context.Context, state SagaState) erro
     `
 	_, err := s.pool.Exec(ctx, query,
 		state.SagaID,
-		state.CorrelationID,
+		//state.CorrelationID,
 		state.Status,
 		state.CurrentStepIndex,
 		state.ExecutedSteps,
@@ -66,9 +66,9 @@ func (s *PostgresSagaStore) LoadState(ctx context.Context, sagaID string) (*Saga
 
 	err := s.pool.QueryRow(ctx, query, sagaID).Scan(
 		&state.SagaID,
-		&state.CorrelationID,
+		//&state.CorrelationID,
 		&state.Status,
-		&state.CurrentStep,
+		&state.CurrentStepIndex,
 		&executedSteps,
 		&state.CreatedAt,
 		&state.UpdatedAt,
