@@ -87,6 +87,7 @@ func (t *testLogger) countContaining(substr string) int {
 // =====================================
 
 func TestRetryStrategy_SuccessfulCompensation(t *testing.T) {
+	logger := NewDefaultLogger(log.Default())
 	// All compensations succeed on first try
 	step1 := newMockStep("Step1", 0) // Never fails
 	step2 := newMockStep("Step2", 0) // Never fails
@@ -110,7 +111,7 @@ func TestRetryStrategy_SuccessfulCompensation(t *testing.T) {
 	strategy := NewRetryStrategy[TestData](config)
 
 	// Simulate failure at step index 2, so steps 0 and 1 need compensation
-	err := strategy.Compensate(context.Background(), steps, 2, data, log.New(log.Writer(), "", 0))
+	err := strategy.Compensate(context.Background(), steps, 2, data, logger)
 
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
@@ -126,6 +127,7 @@ func TestRetryStrategy_SuccessfulCompensation(t *testing.T) {
 }
 
 func TestRetryStrategy_EventualSuccess(t *testing.T) {
+	logger := NewDefaultLogger(log.Default())
 	// Step fails twice, then succeeds
 	step1 := newMockStep("Step1", 2) // Fail first 2 attempts
 
@@ -146,7 +148,7 @@ func TestRetryStrategy_EventualSuccess(t *testing.T) {
 
 	strategy := NewRetryStrategy[TestData](config)
 
-	err := strategy.Compensate(context.Background(), steps, 1, data, log.New(log.Writer(), "", 0))
+	err := strategy.Compensate(context.Background(), steps, 1, data, logger)
 
 	if err != nil {
 		t.Errorf("Expected no error after retries, got: %v", err)
@@ -162,6 +164,7 @@ func TestRetryStrategy_EventualSuccess(t *testing.T) {
 }
 
 func TestRetryStrategy_ExhaustedRetries(t *testing.T) {
+	logger := NewDefaultLogger(log.Default())
 	// Step always fails
 	step1 := newMockStep("Step1", 999) // Always fails
 
@@ -182,7 +185,7 @@ func TestRetryStrategy_ExhaustedRetries(t *testing.T) {
 
 	strategy := NewRetryStrategy[TestData](config)
 
-	err := strategy.Compensate(context.Background(), steps, 1, data, log.New(log.Writer(), "", 0))
+	err := strategy.Compensate(context.Background(), steps, 1, data, logger)
 
 	if err == nil {
 		t.Error("Expected error after exhausting retries")
@@ -199,6 +202,7 @@ func TestRetryStrategy_ExhaustedRetries(t *testing.T) {
 }
 
 func TestRetryStrategy_StopsOnFirstFailure(t *testing.T) {
+	logger := NewDefaultLogger(log.Default())
 	// First step fails, second should not be attempted
 	step1 := newMockStep("Step1", 999) // Always fails
 	step2 := newMockStep("Step2", 0)   // Would succeed
@@ -222,7 +226,7 @@ func TestRetryStrategy_StopsOnFirstFailure(t *testing.T) {
 	strategy := NewRetryStrategy[TestData](config)
 
 	// Steps 0 and 1 were executed, so both need compensation
-	err := strategy.Compensate(context.Background(), steps, 2, data, log.New(log.Writer(), "", 0))
+	err := strategy.Compensate(context.Background(), steps, 2, data, logger)
 
 	if err == nil {
 		t.Error("Expected error from failed compensation")
@@ -240,6 +244,7 @@ func TestRetryStrategy_StopsOnFirstFailure(t *testing.T) {
 }
 
 func TestRetryStrategy_ContextCancellation(t *testing.T) {
+	logger := NewDefaultLogger(log.Default())
 	step1 := newMockStep("Step1", 999) // Always fails
 
 	steps := []*SagaStep[TestData]{
@@ -262,7 +267,7 @@ func TestRetryStrategy_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
-	err := strategy.Compensate(ctx, steps, 1, data, log.New(log.Writer(), "", 0))
+	err := strategy.Compensate(ctx, steps, 1, data, logger)
 
 	if err == nil {
 		t.Error("Expected error from context cancellation")
@@ -278,6 +283,7 @@ func TestRetryStrategy_ContextCancellation(t *testing.T) {
 // =====================================
 
 func TestContinueAllStrategy_AllSucceed(t *testing.T) {
+	logger := NewDefaultLogger(log.Default())
 	step1 := newMockStep("Step1", 0)
 	step2 := newMockStep("Step2", 0)
 
@@ -293,7 +299,7 @@ func TestContinueAllStrategy_AllSucceed(t *testing.T) {
 	config := DefaultRetryConfig()
 	strategy := NewContinueAllStrategy[TestData](config)
 
-	err := strategy.Compensate(context.Background(), steps, 2, data, log.New(log.Writer(), "", 0))
+	err := strategy.Compensate(context.Background(), steps, 2, data, logger)
 
 	if err != nil {
 		t.Errorf("Expected no error when all succeed, got: %v", err)
@@ -305,6 +311,7 @@ func TestContinueAllStrategy_AllSucceed(t *testing.T) {
 }
 
 func TestContinueAllStrategy_ContinuesAfterFailure(t *testing.T) {
+	logger := NewDefaultLogger(log.Default())
 	step1 := newMockStep("Step1", 999) // Always fails
 	step2 := newMockStep("Step2", 0)   // Succeeds
 
@@ -326,7 +333,7 @@ func TestContinueAllStrategy_ContinuesAfterFailure(t *testing.T) {
 
 	strategy := NewContinueAllStrategy[TestData](config)
 
-	err := strategy.Compensate(context.Background(), steps, 2, data, log.New(log.Writer(), "", 0))
+	err := strategy.Compensate(context.Background(), steps, 2, data, logger)
 
 	// Should return error but continue compensating
 	if err == nil {
@@ -359,6 +366,7 @@ func TestContinueAllStrategy_ContinuesAfterFailure(t *testing.T) {
 }
 
 func TestContinueAllStrategy_MultipleFailures(t *testing.T) {
+	logger := NewDefaultLogger(log.Default())
 	step1 := newMockStep("Step1", 999) // Always fails
 	step2 := newMockStep("Step2", 999) // Always fails
 	step3 := newMockStep("Step3", 0)   // Succeeds
@@ -382,7 +390,7 @@ func TestContinueAllStrategy_MultipleFailures(t *testing.T) {
 
 	strategy := NewContinueAllStrategy[TestData](config)
 
-	err := strategy.Compensate(context.Background(), steps, 3, data, log.New(log.Writer(), "", 0))
+	err := strategy.Compensate(context.Background(), steps, 3, data, logger)
 
 	if err == nil {
 		t.Error("Expected error when multiple steps fail")
@@ -414,6 +422,7 @@ func TestContinueAllStrategy_MultipleFailures(t *testing.T) {
 }
 
 func TestContinueAllStrategy_CompensationErrorDetails(t *testing.T) {
+	logger := NewDefaultLogger(log.Default())
 	step1 := newMockStep("Step1", 999)
 
 	steps := []*SagaStep[TestData]{
@@ -433,7 +442,7 @@ func TestContinueAllStrategy_CompensationErrorDetails(t *testing.T) {
 
 	strategy := NewContinueAllStrategy[TestData](config)
 
-	err := strategy.Compensate(context.Background(), steps, 1, data, log.New(log.Writer(), "", 0))
+	err := strategy.Compensate(context.Background(), steps, 1, data, logger)
 
 	compErr, ok := IsCompensationError(err)
 	if !ok {
@@ -473,6 +482,7 @@ func TestContinueAllStrategy_CompensationErrorDetails(t *testing.T) {
 // =====================================
 
 func TestFailFastStrategy_AllSucceed(t *testing.T) {
+	logger := NewDefaultLogger(log.Default())
 	step1 := newMockStep("Step1", 0)
 	step2 := newMockStep("Step2", 0)
 
@@ -487,7 +497,7 @@ func TestFailFastStrategy_AllSucceed(t *testing.T) {
 
 	strategy := NewFailFastStrategy[TestData]()
 
-	err := strategy.Compensate(context.Background(), steps, 2, data, log.New(log.Writer(), "", 0))
+	err := strategy.Compensate(context.Background(), steps, 2, data, logger)
 
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
@@ -499,6 +509,7 @@ func TestFailFastStrategy_AllSucceed(t *testing.T) {
 }
 
 func TestFailFastStrategy_StopsImmediately(t *testing.T) {
+	logger := NewDefaultLogger(log.Default())
 	step1 := newMockStep("Step1", 1) // Fails once
 	step2 := newMockStep("Step2", 0) // Would succeed
 
@@ -513,7 +524,7 @@ func TestFailFastStrategy_StopsImmediately(t *testing.T) {
 
 	strategy := NewFailFastStrategy[TestData]()
 
-	err := strategy.Compensate(context.Background(), steps, 2, data, log.New(log.Writer(), "", 0))
+	err := strategy.Compensate(context.Background(), steps, 2, data, logger)
 
 	if err == nil {
 		t.Error("Expected error from failed compensation")
@@ -535,6 +546,7 @@ func TestFailFastStrategy_StopsImmediately(t *testing.T) {
 }
 
 func TestFailFastStrategy_NoRetries(t *testing.T) {
+	logger := NewDefaultLogger(log.Default())
 	step1 := newMockStep("Step1", 999) // Always fails
 
 	steps := []*SagaStep[TestData]{
@@ -547,7 +559,7 @@ func TestFailFastStrategy_NoRetries(t *testing.T) {
 
 	strategy := NewFailFastStrategy[TestData]()
 
-	err := strategy.Compensate(context.Background(), steps, 1, data, log.New(log.Writer(), "", 0))
+	err := strategy.Compensate(context.Background(), steps, 1, data, logger)
 
 	if err == nil {
 		t.Error("Expected error")
@@ -564,6 +576,7 @@ func TestFailFastStrategy_NoRetries(t *testing.T) {
 // =====================================
 
 func TestCompensationInReverseOrder(t *testing.T) {
+	logger := NewDefaultLogger(log.Default())
 	// Test that all strategies compensate in reverse order
 	executionOrder := []string{}
 
@@ -606,7 +619,7 @@ func TestCompensationInReverseOrder(t *testing.T) {
 	for i, strategy := range strategies {
 		executionOrder = []string{}
 		// failedStepIndex=3 means steps 0, 1, 2 were executed and need compensation
-		err := strategy.Compensate(context.Background(), steps, 3, data, log.New(log.Writer(), "", 0))
+		err := strategy.Compensate(context.Background(), steps, 3, data, logger)
 		if err != nil {
 			t.Errorf("Strategy %d failed: %v", i, err)
 		}
@@ -627,6 +640,7 @@ func TestCompensationInReverseOrder(t *testing.T) {
 }
 
 func TestExponentialBackoff(t *testing.T) {
+	logger := NewDefaultLogger(log.Default())
 	step1 := newMockStep("Step1", 2) // Fails first 2 times
 
 	steps := []*SagaStep[TestData]{
@@ -647,7 +661,7 @@ func TestExponentialBackoff(t *testing.T) {
 	strategy := NewRetryStrategy[TestData](config)
 
 	start := time.Now()
-	err := strategy.Compensate(context.Background(), steps, 1, data, log.New(log.Writer(), "", 0))
+	err := strategy.Compensate(context.Background(), steps, 1, data, logger)
 	duration := time.Since(start)
 
 	if err != nil {

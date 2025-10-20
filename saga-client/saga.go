@@ -2,8 +2,19 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
+	"time"
+)
+
+type SagaStatus string
+
+const (
+	executing    SagaStatus = "EXECUTING"
+	compensating SagaStatus = "COMPENSATING"
+	complete     SagaStatus = "COMPLETE"
+	fsiled       SagaStatus = "FAILED"
 )
 
 // SagaStep represents a single step in the saga with execute and compensate functions
@@ -17,16 +28,51 @@ type SagaStep[T any] struct {
 type Saga[T any] struct {
 	Steps                []*SagaStep[T]
 	Data                 *T
-	logger               *log.Logger
+	logger               Logger
 	compensationStrategy CompensationStrategy[T]
+	stateStore           SagaStateStore
+	metadata             map[string]string
+}
+
+type SagaStateStore interface {
+	SaveState(ctx context.Context, state *SagaState) error
+	LoadState(ctx context.Context, sagaID string) (*SagaState, error)
+	MarkComplete(ctx context.Context, sagaID string) error
+}
+
+type SagaState struct {
+	SagaID           string
+	CurrentStepIndex int
+	Status           SagaStatus
+	Data             json.RawMessage
+	ExecutedSteps    []string
+	CompensatedSteps []string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+type Logger interface {
+	Log(level string, msg string)
+}
+
+type DefaultLogger struct {
+	logger *log.Logger
+}
+
+func NewDefaultLogger(logger *log.Logger) *DefaultLogger {
+	return &DefaultLogger{logger: logger}
+}
+func (l *DefaultLogger) Log(level string, msg string) {
+	l.logger.Printf("%s: %s", level, msg)
 }
 
 // NewSaga creates a new saga instance with default FailFast strategy
-func NewSaga[T any](data *T) *Saga[T] {
+func NewSaga[T any](stateStore SagaStateStore, data *T) *Saga[T] {
 	return &Saga[T]{
 		Steps:                make([]*SagaStep[T], 0),
 		Data:                 data,
-		logger:               log.Default(),
+		stateStore:           stateStore,
+		logger:               NewDefaultLogger(log.Default()),
 		compensationStrategy: NewFailFastStrategy[T](),
 	}
 }
@@ -36,7 +82,7 @@ func NewSagaWithLogger[T any](data *T, logger *log.Logger) *Saga[T] {
 	return &Saga[T]{
 		Steps:                make([]*SagaStep[T], 0),
 		Data:                 data,
-		logger:               logger,
+		logger:               NewDefaultLogger(log.Default()),
 		compensationStrategy: NewFailFastStrategy[T](),
 	}
 }
@@ -62,13 +108,13 @@ func (s *Saga[T]) AddStep(name string, execute, compensate func(ctx context.Cont
 func (s *Saga[T]) Execute(ctx context.Context) error {
 	for i, step := range s.Steps {
 		if err := step.Execute(ctx, s.Data); err != nil {
-			s.logger.Printf("Step %s failed: %v", step.Name, err)
+			s.logger.Log("info", fmt.Sprintf("Step %s failed: %v", step.Name, err))
 			if compErr := s.compensate(ctx, i); compErr != nil {
 				return fmt.Errorf("execution failed: %w, compensation failed: %w", err, compErr)
 			}
 			return fmt.Errorf("saga failed and rolled back: %w", err)
 		}
-		s.logger.Printf("Executed: %s", step.Name)
+		s.logger.Log("info", fmt.Sprintf("Executed: %s", step.Name))
 	}
 	return nil
 }
