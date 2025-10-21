@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // Example 1: Using ContinueAllStrategy (recommended for most cases)
@@ -30,7 +32,7 @@ func ExampleContinueAllStrategy() {
 
 	strategy := NewContinueAllStrategy[CustomerSagaData](retryConfig)
 
-	saga := NewSaga(NewNoStateStore(), data).
+	saga := NewSaga(NewNoStateStore(), uuid.New().String(), data).
 		WithCompensationStrategy(strategy).
 		AddStep("Step1", executeFunc1, compensateFunc1).
 		AddStep("Step2", executeFunc2, compensateFunc2)
@@ -68,7 +70,7 @@ func ExampleRetryStrategy() {
 
 	strategy := NewRetryStrategy[CustomerSagaData](retryConfig)
 
-	saga := NewSaga(NewNoStateStore(), data).
+	saga := NewSaga(NewNoStateStore(), uuid.New().String(), data).
 		WithCompensationStrategy(strategy).
 		AddStep("Step1", executeFunc1, compensateFunc1).
 		AddStep("Step2", executeFunc2, compensateFunc2)
@@ -91,7 +93,7 @@ func ExampleFailFastStrategy() {
 
 	strategy := NewFailFastStrategy[CustomerSagaData]()
 
-	saga := NewSaga(NewNoStateStore(), data).
+	saga := NewSaga(NewNoStateStore(), uuid.New().String(), data).
 		WithCompensationStrategy(strategy).
 		AddStep("Step1", executeFunc1, compensateFunc1).
 		AddStep("Step2", executeFunc2, compensateFunc2)
@@ -110,7 +112,7 @@ func ExampleDefaultStrategy() {
 	}
 
 	// No WithCompensationStrategy() call = uses FailFastStrategy by default
-	saga := NewSaga(NewNoStateStore(), data).
+	saga := NewSaga(NewNoStateStore(), uuid.New().String(), data).
 		AddStep("Step1", executeFunc1, compensateFunc1).
 		AddStep("Step2", executeFunc2, compensateFunc2)
 
@@ -137,7 +139,7 @@ func ExampleCustomRetryConfig() {
 
 	strategy := NewContinueAllStrategy[CustomerSagaData](retryConfig)
 
-	saga := NewSaga(NewNoStateStore(), data).
+	saga := NewSaga(NewNoStateStore(), uuid.New().String(), data).
 		WithCompensationStrategy(strategy).
 		AddStep("Step1", executeFunc1, compensateFunc1)
 

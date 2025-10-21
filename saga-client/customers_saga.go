@@ -72,7 +72,7 @@ func (s *CustomersSaga) CreateCustomer(ctx context.Context, name, email string) 
 	compensationStrategy := NewContinueAllStrategy[CustomerSagaData](retryConfig)
 
 	// Create and execute the saga
-	err := NewSaga(s.stateStore, data).
+	err := NewSaga(s.stateStore, uuid.New().String(), data).
 		WithCompensationStrategy(compensationStrategy).
 		AddStep(
 			"CreateCustomer",
@@ -121,7 +121,7 @@ func (s *CustomersSaga) CreateCustomer(ctx context.Context, name, email string) 
 					return fmt.Errorf("failed to export loan: %w", err)
 				}
 				data.LoanID = &loan.Id
-				return nil
+				return fmt.Errorf("failed")
 			},
 			func(ctx context.Context, data *CustomerSagaData) error {
 				// Compensation: clean up order if it was created
