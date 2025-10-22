@@ -12,6 +12,7 @@ type SagaStateRecord struct {
 	SagaID           string          `db:"saga_id" primaryKey:"true"`
 	Status           string          `db:"status" index:"true"`
 	CurrentStep      int             `db:"current_step"`
+	TotalSteps       int             `db:"total_steps"`
 	CompensatedSteps []string        `db:"compensated_steps"`
 	ExecutedSteps    []string        `db:"executed_steps"`
 	DataJSON         json.RawMessage `db:"data"`
@@ -31,16 +32,17 @@ func NewPostgresSagaStore(pool *pgx.Conn) *PostgresSagaStore {
 
 func (s *PostgresSagaStore) SaveState(ctx context.Context, state *SagaState) error {
 	query := `
-        INSERT INTO saga_states (saga_id, status, data, current_step, executed_steps, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO saga_states (saga_id, status, data, current_step, total_steps, executed_steps, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         ON CONFLICT (saga_id) DO UPDATE
-        SET status = $2, data = $3, current_step = $4, executed_steps = $5, updated_at = $7
+        SET status = $2, data = $3, current_step = $4, executed_steps = $6, updated_at = $8
     `
 	_, err := s.pool.Exec(ctx, query,
 		state.SagaID,
 		state.Status,
 		state.Data,
 		state.CurrentStepIndex,
+		state.TotalSteps,
 		state.ExecutedSteps,
 		state.CreatedAt,
 		time.Now(),
@@ -67,6 +69,7 @@ func (s *PostgresSagaStore) LoadState(ctx context.Context, sagaID string) (*Saga
 		&state.SagaID,
 		&state.Status,
 		&state.CurrentStepIndex,
+		&state.TotalSteps,
 		&executedSteps,
 		&state.CreatedAt,
 		&state.UpdatedAt,

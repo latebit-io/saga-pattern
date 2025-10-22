@@ -8,6 +8,7 @@ CREATE DATABASE saga_db;
 CREATE TABLE saga_states (
     saga_id VARCHAR(36) PRIMARY KEY,
     status VARCHAR(50) NOT NULL,
+    total_steps INT NOT NULL DEFAULT 0,
     current_step INT NOT NULL DEFAULT 0,
     executed_steps TEXT[] NOT NULL DEFAULT '{}',
     data JSONB NOT NULL,
