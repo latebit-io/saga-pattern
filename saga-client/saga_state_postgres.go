@@ -15,6 +15,7 @@ type SagaStateRecord struct {
 	TotalSteps       int             `db:"total_steps"`
 	CompensatedSteps []string        `db:"compensated_steps"`
 	ExecutedSteps    []string        `db:"executed_steps"`
+	FailedStep       string          `db:"failed_step"`
 	DataJSON         json.RawMessage `db:"data"`
 	CreatedAt        time.Time       `db:"created_at"`
 	UpdatedAt        time.Time       `db:"updated_at"`
@@ -32,10 +33,31 @@ func NewPostgresSagaStore(pool *pgx.Conn) *PostgresSagaStore {
 
 func (s *PostgresSagaStore) SaveState(ctx context.Context, state *SagaState) error {
 	query := `
-        INSERT INTO saga_states (saga_id, status, data, current_step, total_steps, executed_steps, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO saga_states
+        (
+        	saga_id,
+         	status,
+          	data,
+           	current_step,
+            total_steps,
+            executed_steps,
+            failed_step,
+            compensated_steps,
+            compensated_status,
+            created_at,
+            updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         ON CONFLICT (saga_id) DO UPDATE
-        SET status = $2, data = $3, current_step = $4, executed_steps = $6, updated_at = $8
+        SET
+        	status = $2,
+         	data = $3,
+          	current_step = $4,
+           	executed_steps = $6,
+            failed_step = $7,
+            compensated_steps = $8,
+            compensated_status = $9,
+            updated_at = $11
     `
 	_, err := s.pool.Exec(ctx, query,
 		state.SagaID,
@@ -44,6 +66,9 @@ func (s *PostgresSagaStore) SaveState(ctx context.Context, state *SagaState) err
 		state.CurrentStepIndex,
 		state.TotalSteps,
 		state.ExecutedSteps,
+		state.FailedStep,
+		state.CompensatedSteps,
+		state.CompensatedStatus,
 		state.CreatedAt,
 		time.Now(),
 	)
@@ -57,20 +82,33 @@ func (s *PostgresSagaStore) SaveState(ctx context.Context, state *SagaState) err
 
 func (s *PostgresSagaStore) LoadState(ctx context.Context, sagaID string) (*SagaState, error) {
 	query := `
-        SELECT saga_id, status, current_step, executed_steps, created_at, updated_at
+        SELECT
+	       	saga_id,
+	        status,
+	        data,
+	        current_step,
+	        total_steps,
+	        executed_steps,
+	        failed_step,
+	        compensated_steps,
+	        compensated_status,
+	        created_at,
+	        updated_at
         FROM saga_states
         WHERE saga_id = $1
     `
-
 	state := &SagaState{}
-	var executedSteps []string
 
 	err := s.pool.QueryRow(ctx, query, sagaID).Scan(
 		&state.SagaID,
 		&state.Status,
+		&state.Data,
 		&state.CurrentStepIndex,
 		&state.TotalSteps,
-		&executedSteps,
+		&state.ExecutedSteps,
+		&state.FailedStep,
+		&state.CompensatedSteps,
+		&state.CompensatedStatus,
 		&state.CreatedAt,
 		&state.UpdatedAt,
 	)

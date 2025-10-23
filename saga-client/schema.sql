@@ -11,6 +11,9 @@ CREATE TABLE saga_states (
     total_steps INT NOT NULL DEFAULT 0,
     current_step INT NOT NULL DEFAULT 0,
     executed_steps TEXT[] NOT NULL DEFAULT '{}',
+    failed_step VARCHAR(50) NULL,
+    compensated_steps TEXT[] NOT NULL DEFAULT '{}',
+    compensated_status VARCHAR(50) NULL,
     data JSONB NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()

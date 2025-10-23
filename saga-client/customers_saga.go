@@ -6,7 +6,7 @@ import (
 	"time"
 
 	customers "service1/api/pkg/client"
-	applictions "service2/api/pkg/client"
+	applications "service2/api/pkg/client"
 	servicing "service3/api/pkg/client"
 
 	"github.com/google/uuid"
@@ -36,13 +36,13 @@ type ApplicationSagaData struct {
 
 type CustomersSaga struct {
 	customersClient    *customers.Client
-	applicationsClient *applictions.Client
+	applicationsClient *applications.Client
 	servicingClient    *servicing.Client
 	stateStore         SagaStateStore
 }
 
 func NewCustomersSaga(stateStore SagaStateStore, customers *customers.Client,
-	applications *applictions.Client, servicing *servicing.Client) *CustomersSaga {
+	applications *applications.Client, servicing *servicing.Client) *CustomersSaga {
 	return &CustomersSaga{
 		customersClient:    customers,
 		applicationsClient: applications,

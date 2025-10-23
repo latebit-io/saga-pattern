@@ -6,7 +6,7 @@ import (
 	"os"
 
 	customers "service1/api/pkg/client"
-	applictions "service2/api/pkg/client"
+	applications "service2/api/pkg/client"
 	servicing "service3/api/pkg/client"
 
 	"github.com/jackc/pgx/v5"
@@ -25,7 +25,7 @@ func main() {
 	}
 
 	customersClient := customers.NewClient("http://localhost:8081")
-	applicationsClient := applictions.NewClient("http://localhost:8082")
+	applicationsClient := applications.NewClient("http://localhost:8082")
 	servicingClient := servicing.NewClient("http://localhost:8083")
 	stateStore := NewPostgresSagaStore(pool)
 	saga := NewCustomersSaga(stateStore, customersClient, applicationsClient, servicingClient)

@@ -8,7 +8,7 @@ import (
 
 // CompensationStrategy defines how to handle compensation failures
 type CompensationStrategy[T any] interface {
-	Compensate(ctx context.Context, steps []*SagaStep[T], failedStepIndex int, data *T, logger Logger) error
+	Compensate(ctx context.Context, saga Saga[T], failedStepIndex int, logger Logger) error
 }
 
 // CompensationResult tracks the result of compensating a single step
@@ -48,12 +48,12 @@ func NewRetryStrategy[T any](config RetryConfig) *RetryStrategy[T] {
 	return &RetryStrategy[T]{config: config}
 }
 
-func (r *RetryStrategy[T]) Compensate(ctx context.Context, steps []*SagaStep[T], failedStepIndex int, data *T, logger Logger) error {
+func (r *RetryStrategy[T]) Compensate(ctx context.Context, saga Saga[T], failedStepIndex int, logger Logger) error {
 	// Compensate in reverse order
 	for i := failedStepIndex - 1; i >= 0; i-- {
-		step := steps[i]
+		step := saga.Steps[i]
 
-		if err := r.compensateStepWithRetry(ctx, step, data, logger); err != nil {
+		if err := r.compensateStepWithRetry(ctx, step, saga.Data, logger); err != nil {
 			return fmt.Errorf("compensation failed for step %s after %d attempts: %w",
 				step.Name, r.config.MaxRetries+1, err)
 		}
@@ -107,15 +107,15 @@ func NewContinueAllStrategy[T any](retryConfig RetryConfig) *ContinueAllStrategy
 	return &ContinueAllStrategy[T]{retryConfig: retryConfig}
 }
 
-func (c *ContinueAllStrategy[T]) Compensate(ctx context.Context, steps []*SagaStep[T], failedStepIndex int, data *T, logger Logger) error {
+func (c *ContinueAllStrategy[T]) Compensate(ctx context.Context, saga Saga[T], failedStepIndex int, logger Logger) error {
 	var compensationErrors []CompensationResult
 	retryHelper := NewRetryStrategy[T](c.retryConfig)
 
 	// Try to compensate all steps, even if some fail
 	for i := failedStepIndex - 1; i >= 0; i-- {
-		step := steps[i]
+		step := saga.Steps[i]
 
-		err := retryHelper.compensateStepWithRetry(ctx, step, data, logger)
+		err := retryHelper.compensateStepWithRetry(ctx, step, saga.Data, logger)
 
 		result := CompensationResult{
 			StepName: step.Name,
@@ -153,10 +153,10 @@ func NewFailFastStrategy[T any]() *FailFastStrategy[T] {
 	return &FailFastStrategy[T]{}
 }
 
-func (f *FailFastStrategy[T]) Compensate(ctx context.Context, steps []*SagaStep[T], failedStepIndex int, data *T, logger Logger) error {
+func (f *FailFastStrategy[T]) Compensate(ctx context.Context, saga Saga[T], failedStepIndex int, logger Logger) error {
 	for i := failedStepIndex - 1; i >= 0; i-- {
-		step := steps[i]
-		if err := step.Compensate(ctx, data); err != nil {
+		step := saga.Steps[i]
+		if err := step.Compensate(ctx, saga.Data); err != nil {
 			return fmt.Errorf("compensation failed for step %s: %w", step.Name, err)
 		}
 		logger.Log("info", fmt.Sprintf("✓ Compensated: %s", step.Name))
