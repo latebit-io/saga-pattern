@@ -30,7 +30,6 @@ func main() {
 	stateStore := NewPostgresSagaStore(pool)
 	saga := NewCustomersSaga(stateStore, customersClient, applicationsClient, servicingClient)
 	err = saga.CreateCustomer(context.Background(), "John", "john@makes.beats")
-
 	if err != nil {
 		panic(err)
 	}

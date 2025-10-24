@@ -15,6 +15,7 @@ const (
 	compensating SagaStatus = "COMPENSATING"
 	complete     SagaStatus = "COMPLETE"
 	failed       SagaStatus = "FAILED"
+	created      SagaStatus = "CREATED"
 )
 
 // SagaStep represents a single step in the saga with execute and compensate functions
@@ -29,6 +30,7 @@ type Saga[T any] struct {
 	SagaID               string
 	Steps                []*SagaStep[T]
 	Data                 *T
+	State                SagaState
 	logger               Logger
 	compensationStrategy CompensationStrategy[T]
 	stateStore           SagaStateStore
@@ -45,15 +47,24 @@ type SagaStateStore interface {
 type SagaState struct {
 	SagaID            string
 	TotalSteps        int
-	CurrentStepIndex  int
+	CurrentStep       int
 	Status            SagaStatus
 	Data              json.RawMessage
-	ExecutedSteps     []string
-	FailedStep        string
-	CompensatedSteps  []string
+	FailedStep        int
+	CompensatedSteps  []int
 	CompensatedStatus SagaStatus
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
+}
+
+func NewSagaState(sagaID string) SagaState {
+	return SagaState{
+		SagaID:           sagaID,
+		Status:           created,
+		CompensatedSteps: make([]int, 0),
+		CreatedAt:        time.Now(),
+		UpdatedAt:        time.Now(),
+	}
 }
 
 type Logger interface {
@@ -74,21 +85,13 @@ func (l *DefaultLogger) Log(level string, msg string) {
 
 // NewSaga creates a new saga instance with default FailFast strategy
 func NewSaga[T any](stateStore SagaStateStore, sagaID string, data *T) *Saga[T] {
+	state := NewSagaState(sagaID)
 	return &Saga[T]{
 		SagaID:               sagaID,
 		Steps:                make([]*SagaStep[T], 0),
 		Data:                 data,
+		State:                state,
 		stateStore:           stateStore,
-		logger:               NewDefaultLogger(log.Default()),
-		compensationStrategy: NewFailFastStrategy[T](),
-	}
-}
-
-// NewSagaWithLogger creates a new saga instance with a custom logger and default FailFast strategy
-func NewSagaWithLogger[T any](data *T, logger *log.Logger) *Saga[T] {
-	return &Saga[T]{
-		Steps:                make([]*SagaStep[T], 0),
-		Data:                 data,
 		logger:               NewDefaultLogger(log.Default()),
 		compensationStrategy: NewFailFastStrategy[T](),
 	}
@@ -133,30 +136,23 @@ func (s *Saga[T]) LoadState(sagaID string) *Saga[T] {
 
 // Execute runs the saga
 func (s *Saga[T]) Execute(ctx context.Context) error {
-	steps := []string{}
-	compensated := []string{}
+	s.State.TotalSteps = len(s.Steps)
 	for i, step := range s.Steps {
+		s.State.CurrentStep = i + 1
 		if err := step.Execute(ctx, s.Data); err != nil {
+			s.State.FailedStep = i
+			s.State.Status = failed
+			s.State.UpdatedAt = time.Now()
 			s.logger.Log("info", fmt.Sprintf("Step %s failed: %v", step.Name, err))
-			if compErr := s.compensate(ctx, i); compErr != nil {
-				return fmt.Errorf("execution failed: %w, compensation failed: %w", err, compErr)
-			}
-			// compensated = append(compensated, step.Name)
-			// err := s.saveSagaFailed(ctx, steps, compensated, i, step.Name)
-			// if err != nil {
-			// 	s.logger.Log("info", fmt.Sprintf("Failed to update: %s", err))
-			// }
-			return fmt.Errorf("saga failed and rolled back: %w", err)
+			s.SaveState(ctx)
+			return fmt.Errorf("saga failed and needs to be rolled back: %w", err)
 		}
-		steps = append(steps, step.Name)
-		err := s.saveStepComplete(ctx, steps, i)
-		if err != nil {
-			s.logger.Log("info", fmt.Sprintf("Failed to update: %s", err))
-		}
-		s.logger.Log("info", fmt.Sprintf("Executed: %s", step.Name))
+		s.SaveState(ctx)
+		s.logger.Log("info", fmt.Sprintf("Executed: %d - %s", i, step.Name))
 	}
 
-	err := s.saveComplete(ctx, steps, compensated, len(s.Steps))
+	s.State.Status = complete
+	err := s.SaveState(ctx)
 	if err != nil {
 		s.logger.Log("info", fmt.Sprintf("Failed to write: %s", err))
 	}
@@ -164,93 +160,19 @@ func (s *Saga[T]) Execute(ctx context.Context) error {
 	return nil
 }
 
-// compensate runs compensation for executed steps using the configured strategy
-func (s *Saga[T]) compensate(ctx context.Context, failedStepIndex int) error {
-	return s.compensationStrategy.Compensate(ctx, *s, failedStepIndex, s.logger)
+func (s *Saga[T]) Compensate(ctx context.Context) error {
+	return s.compensationStrategy.Compensate(ctx, *s)
 }
 
-func (s *Saga[T]) loadState(ctx context.Context, sagaID string) (*SagaState, error) {
-	sagaState, err := s.stateStore.LoadState(ctx, sagaID)
-	if err != nil {
-		return nil, err
-	}
-
-	err = json.Unmarshal(sagaState.Data, s.Data)
-	if err != nil {
-		return nil, err
-	}
-
-	return sagaState, nil
-}
-
-func (s *Saga[T]) saveComplete(ctx context.Context, executed []string, compensated []string, index int) error {
+func (s *Saga[T]) SaveState(ctx context.Context) error {
 	marshaledData, err := json.Marshal(*s.Data)
 	if err != nil {
 		return fmt.Errorf("failed to marshal data: %w", err)
 	}
-	state := SagaState{
-		SagaID:           s.SagaID,
-		TotalSteps:       len(s.Steps),
-		CurrentStepIndex: index,
-		Status:           complete,
-		Data:             json.RawMessage(marshaledData),
-		ExecutedSteps:    executed,
-		CompensatedSteps: compensated,
-		CreatedAt:        time.Now(),
-		UpdatedAt:        time.Now(),
-	}
 
-	err = s.stateStore.SaveState(ctx, &state)
-	if err != nil {
-		return err
-	}
+	s.State.Data = marshaledData
 
-	return nil
-}
-
-func (s *Saga[T]) saveStepComplete(ctx context.Context, executed []string, index int) error {
-	marshaledData, err := json.Marshal(*s.Data)
-	if err != nil {
-		return fmt.Errorf("failed to marshal data: %w", err)
-	}
-	state := SagaState{
-		SagaID:           s.SagaID,
-		TotalSteps:       len(s.Steps),
-		CurrentStepIndex: index,
-		Status:           executing,
-		Data:             json.RawMessage(marshaledData),
-		ExecutedSteps:    executed,
-		CreatedAt:        time.Now(),
-		UpdatedAt:        time.Now(),
-	}
-
-	err = s.stateStore.SaveState(ctx, &state)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (s *Saga[T]) saveSagaFailed(ctx context.Context, executed []string, compensated []string, index int, failedStep string) error {
-	marshaledData, err := json.Marshal(*s.Data)
-	if err != nil {
-		return fmt.Errorf("failed to marshal data: %w", err)
-	}
-	state := SagaState{
-		SagaID:           s.SagaID,
-		TotalSteps:       len(s.Steps),
-		CurrentStepIndex: index,
-		Status:           failed,
-		Data:             json.RawMessage(marshaledData),
-		ExecutedSteps:    executed,
-		FailedStep:       failedStep,
-		CompensatedSteps: compensated,
-		CreatedAt:        time.Now(),
-		UpdatedAt:        time.Now(),
-	}
-
-	err = s.stateStore.SaveState(ctx, &state)
+	err = s.stateStore.SaveState(ctx, &s.State)
 	if err != nil {
 		return err
 	}

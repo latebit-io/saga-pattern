@@ -4,17 +4,15 @@ CREATE DATABASE saga_db;
 -- Connect to the new database and create tables
 \c saga_db;
 
-
 CREATE TABLE saga_states (
     saga_id VARCHAR(36) PRIMARY KEY,
-    status VARCHAR(50) NOT NULL,
-    total_steps INT NOT NULL DEFAULT 0,
     current_step INT NOT NULL DEFAULT 0,
-    executed_steps TEXT[] NOT NULL DEFAULT '{}',
-    failed_step VARCHAR(50) NULL,
-    compensated_steps TEXT[] NOT NULL DEFAULT '{}',
-    compensated_status VARCHAR(50) NULL,
+    total_steps INT NOT NULL DEFAULT 0,
+    status VARCHAR(50) NOT NULL,
     data JSONB NOT NULL,
+    failed_step INT NULL,
+    compensated_steps INT[] NOT NULL DEFAULT '{}',
+    compensated_status VARCHAR(50) NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );

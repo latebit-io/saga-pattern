@@ -15,12 +15,10 @@ import (
 // CustomerSagaData holds the shared data context for the customer saga
 // Steps can read from and write to this struct to pass data between steps
 type CustomerSagaData struct {
-	// Input fields
 	Name  string
 	Email string
 
-	// Populated by steps during execution
-	CustomerID    *uuid.UUID // Set by CreateCustomer step
+	CustomerID    *uuid.UUID
 	ApplicationID *uuid.UUID
 	LoanID        *uuid.UUID
 
@@ -52,7 +50,6 @@ func NewCustomersSaga(stateStore SagaStateStore, customers *customers.Client,
 }
 
 func (s *CustomersSaga) CreateCustomer(ctx context.Context, name, email string) error {
-	// Initialize the saga data context
 	data := &CustomerSagaData{
 		Name:  name,
 		Email: email,
@@ -72,7 +69,7 @@ func (s *CustomersSaga) CreateCustomer(ctx context.Context, name, email string) 
 	compensationStrategy := NewContinueAllStrategy[CustomerSagaData](retryConfig)
 
 	// Create and execute the saga
-	err := NewSaga(s.stateStore, uuid.New().String(), data).
+	customerSaga := NewSaga(s.stateStore, uuid.New().String(), data).
 		WithCompensationStrategy(compensationStrategy).
 		AddStep(
 			"CreateCustomer",
@@ -113,7 +110,7 @@ func (s *CustomersSaga) CreateCustomer(ctx context.Context, name, email string) 
 		AddStep(
 			"ExportToServicing",
 			func(ctx context.Context, data *CustomerSagaData) error {
-				//return fmt.Errorf("failed to export loan")
+				return fmt.Errorf("failed to export loan: %w", "error")
 				loan, err := s.servicingClient.CreateLoan(ctx, *data.CustomerID, *data.ApplicationID,
 					data.Application.LoanAmount, data.Application.InterestRate, data.Application.TermYears,
 					float64(100), data.Application.LoanAmount, time.Now(), time.Now().AddDate(1, 0, 0))
@@ -121,17 +118,20 @@ func (s *CustomersSaga) CreateCustomer(ctx context.Context, name, email string) 
 					return fmt.Errorf("failed to export loan: %w", err)
 				}
 				data.LoanID = &loan.Id
-				return fmt.Errorf("failed")
+				return nil
 			},
 			func(ctx context.Context, data *CustomerSagaData) error {
-				// Compensation: clean up order if it was created
 				if data.LoanID != nil {
 					return nil
 				}
 				return s.servicingClient.DeleteLoan(ctx, *data.LoanID)
 			},
-		).
-		Execute(ctx)
+		)
+
+	err := customerSaga.Execute(ctx)
+	if err != nil {
+		return customerSaga.Compensate(ctx)
+	}
 
 	return err
 }
