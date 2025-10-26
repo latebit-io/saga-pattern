@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
+	gosaga "github.com/latebit-io/go-saga"
 )
 
 func main() {
@@ -27,7 +28,7 @@ func main() {
 	customersClient := customers.NewClient("http://localhost:8081")
 	applicationsClient := applications.NewClient("http://localhost:8082")
 	servicingClient := servicing.NewClient("http://localhost:8083")
-	stateStore := NewPostgresSagaStore(pool)
+	stateStore := gosaga.NewPostgresSagaStore(pool)
 	saga := NewCustomersSaga(stateStore, customersClient, applicationsClient, servicingClient)
 	err = saga.CreateCustomer(context.Background(), "John", "john@makes.beats")
 	if err != nil {

@@ -10,6 +10,7 @@ import (
 	servicing "service3/api/pkg/client"
 
 	"github.com/google/uuid"
+	gosaga "github.com/latebit-io/go-saga"
 )
 
 // CustomerSagaData holds the shared data context for the customer saga
@@ -36,10 +37,10 @@ type CustomersSaga struct {
 	customersClient    *customers.Client
 	applicationsClient *applications.Client
 	servicingClient    *servicing.Client
-	stateStore         SagaStateStore
+	stateStore         gosaga.SagaStateStore
 }
 
-func NewCustomersSaga(stateStore SagaStateStore, customers *customers.Client,
+func NewCustomersSaga(stateStore gosaga.SagaStateStore, customers *customers.Client,
 	applications *applications.Client, servicing *servicing.Client) *CustomersSaga {
 	return &CustomersSaga{
 		customersClient:    customers,
@@ -62,14 +63,14 @@ func (s *CustomersSaga) CreateCustomer(ctx context.Context, name, email string) 
 	}
 
 	// Configure compensation strategy with retry and continue-all behavior
-	retryConfig := DefaultRetryConfig()
+	retryConfig := gosaga.DefaultRetryConfig()
 	retryConfig.MaxRetries = 3
 	retryConfig.InitialBackoff = 2 * time.Second
 
-	compensationStrategy := NewContinueAllStrategy[CustomerSagaData](retryConfig)
+	compensationStrategy := gosaga.NewContinueAllStrategy[CustomerSagaData](retryConfig)
 
 	// Create and execute the saga
-	customerSaga := NewSaga(s.stateStore, uuid.New().String(), data).
+	customerSaga := gosaga.NewSaga(s.stateStore, uuid.New().String(), data).
 		WithCompensationStrategy(compensationStrategy).
 		AddStep(
 			"CreateCustomer",
@@ -104,13 +105,14 @@ func (s *CustomersSaga) CreateCustomer(ctx context.Context, name, email string) 
 				if data.ApplicationID == nil {
 					return nil
 				}
-				return s.applicationsClient.Delete(ctx, *data.ApplicationID)
+				//return s.applicationsClient.Delete(ctx, *data.ApplicationID)
+				return fmt.Errorf("failed to create application: %w", "compensate")
 			},
 		).
 		AddStep(
 			"ExportToServicing",
 			func(ctx context.Context, data *CustomerSagaData) error {
-				return fmt.Errorf("failed to export loan: %w", "error")
+				//return fmt.Errorf("failed to export loan: %w", "error")
 				loan, err := s.servicingClient.CreateLoan(ctx, *data.CustomerID, *data.ApplicationID,
 					data.Application.LoanAmount, data.Application.InterestRate, data.Application.TermYears,
 					float64(100), data.Application.LoanAmount, time.Now(), time.Now().AddDate(1, 0, 0))
@@ -124,6 +126,7 @@ func (s *CustomersSaga) CreateCustomer(ctx context.Context, name, email string) 
 				if data.LoanID != nil {
 					return nil
 				}
+
 				return s.servicingClient.DeleteLoan(ctx, *data.LoanID)
 			},
 		)
