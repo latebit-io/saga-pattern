@@ -5,21 +5,21 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	customers "service1/api/pkg/client"
-	applictions "service2/api/pkg/client"
+	applications "service2/api/pkg/client"
 	servicing "service3/api/pkg/client"
+
+	"github.com/google/uuid"
+	gosaga "github.com/latebit-io/go-saga"
 )
 
 // CustomerSagaData holds the shared data context for the customer saga
 // Steps can read from and write to this struct to pass data between steps
 type CustomerSagaData struct {
-	// Input fields
 	Name  string
 	Email string
 
-	// Populated by steps during execution
-	CustomerID    *uuid.UUID // Set by CreateCustomer step
+	CustomerID    *uuid.UUID
 	ApplicationID *uuid.UUID
 	LoanID        *uuid.UUID
 
@@ -35,21 +35,22 @@ type ApplicationSagaData struct {
 
 type CustomersSaga struct {
 	customersClient    *customers.Client
-	applicationsClient *applictions.Client
+	applicationsClient *applications.Client
 	servicingClient    *servicing.Client
+	stateStore         gosaga.SagaStateStore
 }
 
-func NewCustomersSaga(customers *customers.Client,
-	applications *applictions.Client, servicing *servicing.Client) *CustomersSaga {
+func NewCustomersSaga(stateStore gosaga.SagaStateStore, customers *customers.Client,
+	applications *applications.Client, servicing *servicing.Client) *CustomersSaga {
 	return &CustomersSaga{
 		customersClient:    customers,
 		applicationsClient: applications,
 		servicingClient:    servicing,
+		stateStore:         stateStore,
 	}
 }
 
 func (s *CustomersSaga) CreateCustomer(ctx context.Context, name, email string) error {
-	// Initialize the saga data context
 	data := &CustomerSagaData{
 		Name:  name,
 		Email: email,
@@ -62,14 +63,14 @@ func (s *CustomersSaga) CreateCustomer(ctx context.Context, name, email string) 
 	}
 
 	// Configure compensation strategy with retry and continue-all behavior
-	retryConfig := DefaultRetryConfig()
+	retryConfig := gosaga.DefaultRetryConfig()
 	retryConfig.MaxRetries = 3
 	retryConfig.InitialBackoff = 2 * time.Second
 
-	compensationStrategy := NewContinueAllStrategy[CustomerSagaData](retryConfig)
+	compensationStrategy := gosaga.NewContinueAllStrategy[CustomerSagaData](retryConfig)
 
 	// Create and execute the saga
-	err := NewSaga(data).
+	customerSaga := gosaga.NewSaga(s.stateStore, uuid.New().String(), data).
 		WithCompensationStrategy(compensationStrategy).
 		AddStep(
 			"CreateCustomer",
@@ -104,13 +105,14 @@ func (s *CustomersSaga) CreateCustomer(ctx context.Context, name, email string) 
 				if data.ApplicationID == nil {
 					return nil
 				}
-				return s.applicationsClient.Delete(ctx, *data.ApplicationID)
+				//return s.applicationsClient.Delete(ctx, *data.ApplicationID)
+				return fmt.Errorf("failed to create application: %w", "compensate")
 			},
 		).
 		AddStep(
 			"ExportToServicing",
 			func(ctx context.Context, data *CustomerSagaData) error {
-				//return fmt.Errorf("failed to export loan")
+				//return fmt.Errorf("failed to export loan: %w", "error")
 				loan, err := s.servicingClient.CreateLoan(ctx, *data.CustomerID, *data.ApplicationID,
 					data.Application.LoanAmount, data.Application.InterestRate, data.Application.TermYears,
 					float64(100), data.Application.LoanAmount, time.Now(), time.Now().AddDate(1, 0, 0))
@@ -121,14 +123,18 @@ func (s *CustomersSaga) CreateCustomer(ctx context.Context, name, email string) 
 				return nil
 			},
 			func(ctx context.Context, data *CustomerSagaData) error {
-				// Compensation: clean up order if it was created
 				if data.LoanID != nil {
 					return nil
 				}
+
 				return s.servicingClient.DeleteLoan(ctx, *data.LoanID)
 			},
-		).
-		Execute(ctx)
+		)
+
+	err := customerSaga.Execute(ctx)
+	if err != nil {
+		return customerSaga.Compensate(ctx)
+	}
 
 	return err
 }

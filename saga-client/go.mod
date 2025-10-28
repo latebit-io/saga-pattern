@@ -2,7 +2,12 @@ module saga-client
 
 go 1.24
 
-require github.com/google/uuid v1.6.0
+require (
+	github.com/google/uuid v1.6.0
+	github.com/jackc/pgx/v5 v5.7.6
+	github.com/joho/godotenv v1.5.1
+	github.com/latebit-io/go-saga v0.1.2-beta
+)
 
 require (
 	service1 v0.0.0
@@ -13,7 +18,6 @@ require (
 require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
-	github.com/jackc/pgx/v5 v5.7.5 // indirect
 	github.com/labstack/echo/v4 v4.13.4 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
@@ -27,7 +31,9 @@ require (
 )
 
 replace service1 => ../service1
+
 replace service2 => ../service2
+
 replace service3 => ../service3
 
 // indirect
